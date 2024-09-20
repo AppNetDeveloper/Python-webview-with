@@ -23,5 +23,30 @@ Environment=DISPLAY=:0
 WantedBy=multi-user.target
 
 
+
 sudo systemctl enable webview.service
 sudo systemctl start webview.service
+
+
+o por supervisor:
+
+sudo apt-get update
+sudo apt-get install supervisor
+sudo nano /etc/supervisor/conf.d/webview.conf
+
+[program:webview]
+command=/usr/bin/python3 /home/webview.py
+autostart=true
+autorestart=true
+startretries=3
+user=tu_usuario  # Reemplaza con tu usuario
+stdout_logfile=/var/log/webview.log
+stderr_logfile=/var/log/webview_err.log
+environment=DISPLAY=":0"
+
+sudo supervisorctl reread
+sudo supervisorctl update
+
+
+
+
