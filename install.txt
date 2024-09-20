@@ -1,0 +1,27 @@
+sudo apt update
+sudo apt install --reinstall libxcb-xinerama0
+sudo apt install libx11-xcb1 libxcb1 libxcb-render0 libxcb-shape0 libxcb-xfixes0
+sudo apt install --reinstall qt5-default
+sudo apt install --reinstall pyqt5-dev-tools
+sudo apt install python3-pip
+pip install PyQt5 PyQtWebEngine
+sudo nano /etc/systemd/system/webview.service
+
+
+[Unit]
+Description=Python Web Viewer
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /ruta/completa/al/script/webview.py
+WorkingDirectory=/ruta/completa/al/script
+Restart=always
+User=tu_usuario
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=multi-user.target
+
+
+sudo systemctl enable webview.service
+sudo systemctl start webview.service
