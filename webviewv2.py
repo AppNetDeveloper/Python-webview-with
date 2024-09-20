@@ -1,18 +1,37 @@
 import sys
 import os
-from PyQt5.QtCore import Qt, QUrl, QTimer, QThread
+from PyQt5.QtCore import Qt, QUrl, QTimer, QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 import platform
 
-class LoadUrlThread(QThread):
-    def __init__(self, browser, url):
+class PingThread(QThread):
+    ping_result = pyqtSignal(bool, int)  # Señal para emitir el resultado del ping
+
+    def __init__(self, urls, current_url):
         super().__init__()
-        self.browser = browser
-        self.url = url
+        self.urls = urls
+        self.current_url = current_url
 
     def run(self):
-        self.browser.setUrl(QUrl(self.url))
+        if self.ping(self.urls[self.current_url]):
+            self.ping_result.emit(True, self.current_url)
+        else:
+            for i, url in enumerate(self.urls):
+                if i != self.current_url and self.ping(url):
+                    self.ping_result.emit(True, i)
+                    return
+            self.ping_result.emit(False, -1)
+
+    def ping(self, url):
+        # Extraer el host de la URL para hacer ping
+        host = QUrl(url).host()
+        
+        # Diferenciar el comando ping según el sistema operativo
+        param = '-n' if platform.system().lower() == 'windows' else '-c'
+        response = os.system(f"ping {param} 1 {host}")
+        
+        return response == 0
 
 class FullScreenBrowser(QMainWindow):
     def __init__(self, urls):
@@ -28,20 +47,20 @@ class FullScreenBrowser(QMainWindow):
         self.load_url(self.urls[self.current_url])
 
     def load_url(self, url):
-        self.thread = LoadUrlThread(self.browser, url)
-        self.thread.start()  # Carga la URL en un hilo separado
+        self.browser.setUrl(QUrl(url))
 
     def check_connection(self):
-        if self.ping(self.urls[self.current_url]):
-            return  # Si la URL actual tiene conexión, no hacer nada
+        # Iniciar el hilo de ping
+        self.ping_thread = PingThread(self.urls, self.current_url)
+        self.ping_thread.ping_result.connect(self.handle_ping_result)
+        self.ping_thread.start()
+
+    def handle_ping_result(self, is_connected, url_index):
+        if is_connected:
+            if url_index != self.current_url:
+                self.current_url = url_index
+                self.load_url(self.urls[self.current_url])
         else:
-            for i, url in enumerate(self.urls):
-                if self.ping(url):
-                    self.current_url = i
-                    self.load_url(url)
-                    return
-            
-            # Si ninguna URL tiene conexión, mostrar mensaje
             self.show_no_connection_message()
 
     def show_no_connection_message(self):
@@ -49,24 +68,15 @@ class FullScreenBrowser(QMainWindow):
         label.setAlignment(Qt.AlignCenter)
         self.setCentralWidget(label)
 
-    def ping(self, url):
-        # Extraer el host de la URL para hacer ping
-        host = QUrl(url).host()
-        
-        # Diferenciar el comando ping según el sistema operativo
-        param = '-n' if platform.system().lower() == 'windows' else '-c'
-        response = os.system(f"ping {param} 1 {host}")
-        
-        return response == 0
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     urls = [
+        'http://192.168.1.103/live.html?token=dfdfdsjhfwuegcjfwhmrdj',
         'http://172.25.30.240/live-weight/live.html?token=dfdfdsjhfwuegcjfwhmrdj',
         'https://dicaproduct.boisolo.dev/live-weight/live.html?token=dfdfdsjhfwuegcjfwhmrdj',
-        'http://192.168.1.103/live.html?token=dfdfdsjhfwuegcjfwhmrdj'
     ]
-    
+
     window = FullScreenBrowser(urls)
+    window.show()
     sys.exit(app.exec_())
